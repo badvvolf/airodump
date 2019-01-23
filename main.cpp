@@ -389,9 +389,6 @@ int main(int argc, char* argv[])
         if (res == -1 || res == -2)
             break;
 
-      //  printf("%d bytes header size\n", radiotapHeader->it_len);
-        
-        
         radiotapHeader = (struct radiotap *)packet; 
         dot11Header = (struct dot11 *)((u_int8_t *)packet + radiotapHeader->it_len);
         
@@ -402,84 +399,10 @@ int main(int argc, char* argv[])
             UpdateAPList(packet);
             
             break;
-
-
-
-
-
         }
 
-
-    }
-/*
-    //----- printing MAC -----
-
-    printf("Destination MAC : ");
-    PrintMACAddr(eth->dstMAC);
-
-    printf("Source MAC : ");
-    PrintMACAddr(eth->srcMAC);  
-
-    //_____ printing MAC ______
-
-
-    //----- printing IP -----
-
-    //check if the next protocol is IP
-    if(! CheckEthType(eth->etype))
-      continue;
-
-    ip = (IPHEADER *)((u_int8_t *)eth + ETHHEADSIZE);
-
-    printf("Destination IP : ");
-    PrintIP(ip->dstIP);
-
-    printf("Source IP : ");
-    PrintIP(ip->srcIP);
-
-
-    //_____ printing IP _____
-
-
-    //----- printing port -----
-
-    //check if the next protocol is TCP
-    if( !CheckIPProto(ip->proto))
-      continue;
-
-    u_int32_t iplen = (u_int32_t)(ip->headerLen) * 4;
-    tcp = (TCPHEADER *)((u_int8_t *)ip + iplen);
-
-
-    printf("Destination Port : ");
-    PrintPort(tcp->dstPort);
-
-    printf("Source Port : ");
-    PrintPort(tcp->srcPort);
-
-    //_____ printing port _____
-
-
-
-    //----- printing data -----
-    u_int32_t dataLen = (u_int32_t)ntohs(ip->totalLen) - (u_int32_t)ip->headerLen*4 - (u_int32_t)tcp->dataOffset*4;
-
-    if(dataLen >0)
-    {
-        data = (u_int8_t *)tcp + tcp->dataOffset*4;
-        PrintData(data, dataLen);
     }
 
-    //_____ printing data ______
-
-
-    printf("\n");
-
-  } //while (true) 
-
-  pcap_close(handle);
-  return 0;
-*/
 } //int main(int argc, char* argv[]) 
 
 
@@ -489,49 +412,6 @@ void usage()
   printf("sample: airodump wlan0\n");
 
 } //void usage() 
-
-
-void PrintData(u_int8_t * data, u_int32_t len)
-{
-  int i = 0;
-
-  if(len >16)
-    len = 16;
-  
-  printf("Data : ");
-  for(i =0; i<len; i++)
-    printf("%02x ", data[i]);
-
-  printf("\n");
-
-} //void PrintData(u_int8_t * data, u_int32_t len)
-
-
-
-
-void PrintPort(u_int16_t port)
-{
-  printf("%u\n",ntohs(port) );
-
-} //void PrintPort(u_int16_t port)
-
-
-
-void PrintIP(u_int8_t * ipAddr)
-{
-  int i =0;
-  for(i=0; i<IPV4LEN; i++)  
-  {
-    printf("%u", ipAddr[i]);
-
-    if(i<IPV4LEN-1)
-      printf("."); 
-  }
-
-  printf("\n");
-
-} //void PrintIP(u_int8_t * ipAddr)
-
 
 
 void PrintMACAddr(u_int8_t * addr)
