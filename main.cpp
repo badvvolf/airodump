@@ -6,124 +6,38 @@
 #include <list> 
 #include <string.h>
 #include <stdlib.h>
+#include "typedef.h"
+#include "apinfo.h"
+#include "util.h"
 
-#define MACLEN 6
-#define IPV4LEN 4
-#define ETHHEADSIZE 14
-
-#define RADIOTAPLEN 24
-#define BEACON 0x80
 using namespace std;
 
+//to do
+// - refactoring
+//      change list to map
+//      move codes to class
+// - implement
+//      specific crypto 
+//      data frame 
 
-
-//----- Struct -----
-
-
-enum ieee80211_radiotap_presence {
-	IEEE80211_RADIOTAP_TSFT = 0,
-	IEEE80211_RADIOTAP_FLAGS = 1,
-	IEEE80211_RADIOTAP_RATE = 2,
-	IEEE80211_RADIOTAP_CHANNEL = 3,
-	IEEE80211_RADIOTAP_FHSS = 4,
-	IEEE80211_RADIOTAP_DBM_ANTSIGNAL = 5,
-	IEEE80211_RADIOTAP_DBM_ANTNOISE = 6,
-	IEEE80211_RADIOTAP_LOCK_QUALITY = 7,
-	IEEE80211_RADIOTAP_TX_ATTENUATION = 8,
-	IEEE80211_RADIOTAP_DB_TX_ATTENUATION = 9,
-	IEEE80211_RADIOTAP_DBM_TX_POWER = 10,
-	IEEE80211_RADIOTAP_ANTENNA = 11,
-	IEEE80211_RADIOTAP_DB_ANTSIGNAL = 12,
-	IEEE80211_RADIOTAP_DB_ANTNOISE = 13,
-	IEEE80211_RADIOTAP_RX_FLAGS = 14,
-	IEEE80211_RADIOTAP_TX_FLAGS = 15,
-	IEEE80211_RADIOTAP_RTS_RETRIES = 16,
-	IEEE80211_RADIOTAP_DATA_RETRIES = 17,
-	/* 18 is XChannel, but it's not defined yet */
-	IEEE80211_RADIOTAP_MCS = 19,
-	IEEE80211_RADIOTAP_AMPDU_STATUS = 20,
-	IEEE80211_RADIOTAP_VHT = 21,
-	IEEE80211_RADIOTAP_TIMESTAMP = 22,
-
-	/* valid in every it_present bitmap, even vendor namespaces */
-	IEEE80211_RADIOTAP_RADIOTAP_NAMESPACE = 29,
-	IEEE80211_RADIOTAP_VENDOR_NAMESPACE = 30,
-	IEEE80211_RADIOTAP_EXT = 31
-};
-
-
-struct radiotap_channel{
-
-    u_int16_t frequency;
-    u_int16_t flags;
-
-}__attribute__((__packed__));
-
-class apinfo{
-
-public:
-    u_int8_t bssid[6];
-    int8_t pwr;
-    u_int32_t beacons;
-    u_int32_t data;
-    u_int16_t channel;
-    u_int32_t essidLen;
-    u_int8_t * essid;
-}; 
-
-
-struct beaconbody{
-
-    u_int64_t timestamp;
-    u_int16_t beacon_interval;
-    u_int16_t capability;
-    u_int8_t ssid[32];
-
-    //if you want to get more data, calculate addr with the ssid len 
-}__attribute__((__packed__));
-
-
-struct dot11{
-
-    u_int16_t fc;
-    u_int16_t duid;
-    u_int8_t addr1[6];
-    u_int8_t addr2[6];
-    u_int8_t addr3[6];
-    u_int16_t sc;
-
-}__attribute__((__packed__));;
-
-struct radiotap{
-
-    u_int8_t it_version;
-    u_int8_t it_pad;
-    u_int16_t it_len;
-    u_int32_t it_present;
-
-} __attribute__((__packed__));
-
-//_____ Struct _____
 
 //----- Function declaration -----
 
 void PrintPort(u_int16_t port);
 void PrintData(u_int8_t * data, u_int32_t len);
 void usage() ;
-void PrintMACAddr(u_int8_t * addr);
-apinfo * GetAPList(u_int8_t * bssid, u_int8_t * essid, u_int32_t essidLen);
+Apinfo * GetAPList(u_int8_t * bssid, u_int8_t * essid, u_int32_t essidLen);
 void UpdateAPList(const u_int8_t * packet);
 void PrintAP();
-apinfo * GetRadiotapInfo(struct radiotap * radiotapHeader);
 
 //_____ Function declaration _____
 
-list<apinfo *> apList;
+list<Apinfo *> apList;
 
 //----- Function definition -----
-apinfo * GetAPList(u_int8_t * bssid, u_int8_t * essid, u_int32_t essidLen)
+Apinfo * GetAPList(u_int8_t * bssid, u_int8_t * essid, u_int32_t essidLen)
 {
-    list<apinfo *>::iterator itor;  
+    list<Apinfo *>::iterator itor;  
     for (itor=apList.begin(); itor != apList.end(); itor++ )
     {  
         //known AP
@@ -141,34 +55,45 @@ void UpdateAPList(const u_int8_t * packet)
 
     struct radiotap * radiotapHeader = (struct radiotap *)packet;
     struct dot11 * dot11Header = (struct dot11 *)((u_int8_t *)packet + radiotapHeader->it_len);
-    apinfo * ap;
+    Apinfo * ap;
     struct beaconbody * bcbody = (struct beaconbody *)((u_int8_t *)dot11Header + sizeof(dot11));
 
+    u_int8_t * bcBodyOptions = &(bcbody->options);
 
-    if(ap = GetAPList(dot11Header->addr3, &(bcbody->ssid[2]),bcbody->ssid[1]))
+    if(ap = GetAPList(dot11Header->addr3, &bcBodyOptions[2] , (u_int32_t)bcBodyOptions[1]))
     {
         //update data
-        apinfo * radioInfo = GetRadiotapInfo(radiotapHeader);
+        Apinfo * radioInfo = Apinfo::getRadiotapInfo(radiotapHeader);
         
-        ap->pwr = radioInfo->pwr;
+        //u have to check flag setting
+        if(radioInfo->pwr !=0)
+            ap->pwr += radioInfo->pwr;
+
         ap->channel = radioInfo->channel;
         ap->beacons +=1;
-
+               
         delete(radioInfo);
     }
     else
     {
         //add new AP
-        ap = GetRadiotapInfo(radiotapHeader);
+        ap = Apinfo::getRadiotapInfo(radiotapHeader);
         
         memcpy(ap -> bssid, dot11Header->addr3, 6);
         ap -> beacons = 1;
         ap -> data = 0;
-        ap -> essidLen = bcbody->ssid[1];
+        ap -> essidLen =  (u_int32_t)bcBodyOptions[1];
 
         ap -> essid = new u_int8_t[ap ->essidLen+1];
-        memcpy(ap ->essid, &(bcbody->ssid[2]), ap ->essidLen);
+        memcpy(ap ->essid, &bcBodyOptions[2], ap ->essidLen);
         ap -> essid[ap ->essidLen] = 0;
+
+        if(!(bcbody->capability & IEEE80211_CAPINFO_PRIVACY))
+        {
+            ap->encryption =0;
+        }
+        else
+            ap->encryption =1;
 
         apList.push_back(ap);
     }
@@ -176,175 +101,22 @@ void UpdateAPList(const u_int8_t * packet)
    PrintAP();
 }
 
-apinfo * GetRadiotapInfo(struct radiotap * radiotapHeader)
-{
-
-    //to check all radiotap header
-    apinfo * ap = new apinfo();
-    u_int32_t count = 1;
-    for(u_int32_t * rdcount = (u_int32_t *)&(radiotapHeader->it_present); (*rdcount) & (1 << IEEE80211_RADIOTAP_EXT); rdcount ++)
-    {
-        count ++;
-    }
-
-    //get start point
-    u_int8_t * ptr = (u_int8_t *)&(radiotapHeader->it_present) + 4*count;
-    u_int32_t * it_present = (u_int32_t *)&radiotapHeader->it_present;
-    for(u_int32_t i =0; i<count; i++)
-    {
-        //just add pointer which is not interested
-        if(*it_present& (1<<IEEE80211_RADIOTAP_TSFT)) //0
-        {
-            //if you want to use this flag's infomation
-            //remove the add code and write code here
-            ptr += 8;
-        }
-
-        if(*it_present & (1<<IEEE80211_RADIOTAP_FLAGS)) //1
-        {
-            ptr += 1;
-        }
-
-        if(*it_present & (1<<IEEE80211_RADIOTAP_RATE)) //2
-        {
-            ptr += 1;
-        }
-        if(*it_present & (1 << IEEE80211_RADIOTAP_CHANNEL)) //3
-        {
-            struct radiotap_channel * channel = (struct radiotap_channel *)ptr;
-            ap->channel = (channel->frequency - 2412)/5 +1;
-            ptr += sizeof(struct radiotap_channel);
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_FHSS)) //4
-        {
-                ptr += 2;
-        }
-        //average??????????
-        if (*it_present & (1 << IEEE80211_RADIOTAP_DBM_ANTSIGNAL)) //5
-        {
-            
-            ap->pwr = (int8_t)(*ptr);
-            //maybe alignment
-            ptr += 2;
-            
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_DBM_ANTNOISE)) //6
-        {
-                ptr += 1;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_LOCK_QUALITY)) //7
-        {
-            ptr +=2;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_TX_ATTENUATION)) //8
-        {
-            ptr +=2;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_DB_TX_ATTENUATION)) //9
-        {
-            ptr +=2;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_DBM_TX_POWER)) //10
-        {
-            ptr += 1;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_ANTENNA)) //11
-        {
-            ptr += 1;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_DB_ANTSIGNAL)) //12
-        {
-            ptr += 1;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_DB_ANTNOISE)) //13
-        {
-            ptr += 1;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_RX_FLAGS)) //14
-        {
-            ptr +=2;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_TX_FLAGS)) //15
-        {
-            ptr +=2;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_RTS_RETRIES)) //16
-        {
-            ptr += 1;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_DATA_RETRIES)) //17
-        {
-            ptr += 1;
-        }
-
-        /////////////////////no 18
-
-        if (*it_present & (1 << IEEE80211_RADIOTAP_MCS)) //19
-        {
-            ptr +=3;
-        }
 
 
-        if (*it_present & (1 << IEEE80211_RADIOTAP_AMPDU_STATUS)) //20
-        {
-            ptr +=8;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_VHT)) //21
-        {
-            ptr +=12;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_TIMESTAMP)) //22
-        {
-            ptr +=12;
-
-        }
-        
-        ///////////////////////////23
-        ///////////////////////////24
-        ///////////////////////////25
-        ///////////////////////////26
-        ///////////////////////////27
-        ///////////////////////////28
-
-        //???????????????
-        if (*it_present & (1 << IEEE80211_RADIOTAP_RADIOTAP_NAMESPACE)) //29
-        {
-
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_VENDOR_NAMESPACE)) //30
-        {
-            ptr +=6;
-        }
-        if (*it_present & (1 << IEEE80211_RADIOTAP_EXT)) //31
-        {
-            
-        }
-
-        //see next flag
-        it_present ++;
-
-
-    }
-
-    return ap;
-
-}
 
 
 void PrintAP()
 {
     system("clear");
-
+    //#/s : 10second data
     printf("{ BSSID | PWR | Beacons | #Data | #/s | CH | MB | ENC | CIPHER | AUTH | ESSID }\n\n");
     
-    list<apinfo *>::iterator itor; 
+    list<Apinfo *>::iterator itor; 
     for (itor=apList.begin(); itor != apList.end(); itor++ )
     {   
-        PrintMACAddr((*itor)-> bssid);  
-        printf(" | %d  |  %d  |   %d  |   |   | %d |  |   |  | ", (*itor) ->pwr, (*itor) -> beacons, (*itor) -> data , (*itor)->channel);  
-        
-        printf("%s \n", (*itor)->essid);
-    }
+       (*itor)-> printAPInfo();
+
+    } //for (itor=apList.begin(); itor != apList.end(); itor++ )
 
 }
 
@@ -387,7 +159,7 @@ int main(int argc, char* argv[])
         if (res == 0)
             continue;
         if (res == -1 || res == -2)
-            break;
+            break; 
 
         radiotapHeader = (struct radiotap *)packet; 
         dot11Header = (struct dot11 *)((u_int8_t *)packet + radiotapHeader->it_len);
@@ -414,15 +186,6 @@ void usage()
 } //void usage() 
 
 
-void PrintMACAddr(u_int8_t * addr)
-{
-    int i = 0;
-    for(i= 0; i<MACLEN; i++)
-    {
-        printf("%02x", addr[i]);
-        if(i < MACLEN-1)
-          printf(":");
-    }
-} //void PrintMACAddr(u_int8_t * addr)
+
 
 //_____ Function definition ______
