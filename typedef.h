@@ -15,6 +15,7 @@
 
 using namespace std;
 
+typedef array<u_int8_t, 6> macaddr;
 
 struct radiotap_channel{
 
@@ -41,9 +42,9 @@ struct dot11{
 
     u_int16_t fc;
     u_int16_t duid;
-    u_int8_t addr1[6];
-    u_int8_t addr2[6];
-    u_int8_t addr3[6];
+    macaddr addr1;
+    macaddr addr2;
+    macaddr addr3;
     u_int16_t sc;
 
 };

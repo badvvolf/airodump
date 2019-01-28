@@ -6,6 +6,6 @@
 class Util
 {
 public:
-    void printMACAddr(u_int8_t * addr);
+    void printMACAddr(macaddr addr);
 
 };

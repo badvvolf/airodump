@@ -2,7 +2,7 @@
 #include "util.h"
 
 
-void Util::printMACAddr(u_int8_t * addr)
+void Util::printMACAddr(macaddr addr)
 {
     int i = 0;
     for(i= 0; i<MACLEN; i++)
