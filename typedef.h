@@ -8,6 +8,7 @@
 #define MACLEN 6
 #define BEACON 0x80
 
+#define	IEEE80211_CAPINFO_PRIVACY		0x0010
 
 
 #pragma pack(push, 1)
@@ -23,7 +24,6 @@ struct radiotap_channel{
     u_int16_t flags;
 
 };
-
 
 
 struct beaconbody{
@@ -60,21 +60,8 @@ struct radiotap{
 
 
 
-
-
-
-#define	IEEE80211_CAPINFO_PRIVACY		0x0010
-
 #pragma pack(pop)
 
-
-
-enum class LEN
-{
-    ETHERLEN = 14,
-    IPADDRLEN = 4,
-    PACKETLEN = 0x2a
-};
 
 enum ieee80211_radiotap_presence {
 	IEEE80211_RADIOTAP_TSFT = 0,

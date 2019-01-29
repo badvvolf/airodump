@@ -8,7 +8,7 @@ class Apinfo{
 
 public:
 
-   // u_int8_t bssid[6];
+  
     macaddr bssid;
     int32_t pwr;
     u_int32_t beacons;

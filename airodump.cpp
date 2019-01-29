@@ -1,5 +1,69 @@
 #include "airodump.h"
 
+Airodump::Airodump(uint8_t * dev)
+{
+    subBeacon = new Subscriber(2, (FILTER)&Airodump::filterBeacon);
+    sniffer = new Sniffer(dev);
+    sniffer->addSubscriber(subBeacon);
+
+}
+
+
+void Airodump::start()
+{
+    thread beaconSubBoxChecker(&Airodump::checkBeaconSubBox, this);
+
+    //add probeSubBoxChecker
+
+
+
+    beaconSubBoxChecker.join();
+}
+
+bool Airodump::filterBeacon(const u_int8_t * packet)
+{
+    struct radiotap * radiotapHeader;
+    struct dot11 * dot11Header;
+   
+    radiotapHeader = (struct radiotap *)packet; 
+    dot11Header = (struct dot11 *)((u_int8_t *)packet + radiotapHeader->it_len);
+    if(dot11Header->fc == BEACON)
+            return true;
+
+    return false; 
+}
+
+//how about make "subbox" class and get the value bu function?
+void Airodump::checkBeaconSubBox()
+{
+    while(1)
+    {
+        unique_lock<mutex> lck(subBeacon->mutexSubBox);
+        while (subBeacon->isSubBoxEmpty())
+            subBeacon->subBoxEmpty.wait(lck);
+
+        const u_int8_t * packet = subBeacon->popSubBox();
+        lck.unlock();
+
+        updateAP(packet);
+    }
+}
+/*
+void Airodump::checkProbeSubBox()
+{
+
+    std::unique_lock<std::mutex> lck(subProbe->mutexSubBox);
+
+    while (!subProbe->isSubBoxEmpty())
+        subProbe->subBoxEmpty.wait(lck);
+
+    updateAP(subProbe->popSubBox());
+
+}
+*/
+
+
+
 void Airodump::updateAP(const u_int8_t * packet)
 {
     struct radiotap * radiotapHeader = (struct radiotap *)packet;
@@ -43,12 +107,13 @@ void Airodump::updateAP(const u_int8_t * packet)
         }
         else
             ap->encryption =1;
-
+        
+        
         apInfoMap.insert(make_pair(ap->bssid, ap));
 
     }
 
-   printAll();
+    printAll();
 
 }
 
@@ -73,6 +138,16 @@ Apinfo *  Airodump::getAP(macaddr bssid, u_int8_t * essid, u_int32_t essidLen)
 void Airodump::printAll()
 {
     system("clear");
+    printAP();
+
+    //printProbe()
+
+
+}
+
+void Airodump::printAP()
+{
+
     printf("{ BSSID | PWR | Beacons | #Data | #/s | CH | MB | ENC | CIPHER | AUTH | ESSID }\n\n");
 
     for (apmapItor iter = apInfoMap.begin(); iter != apInfoMap.end(); iter ++)
@@ -80,6 +155,5 @@ void Airodump::printAll()
         iter->second->printAPInfo();
 
     }
-
 
 }

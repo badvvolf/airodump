@@ -3,10 +3,8 @@
 #include <map>
 #include "apinfo.h"
 #include "typedef.h"
-#include <list>  
-#include <string.h>
-#include <stdlib.h>
-#include <algorithm>
+#include "sniffer.h"
+#include <thread>
 
 using namespace std;
 
@@ -14,29 +12,48 @@ typedef multimap<macaddr, Apinfo *>::iterator apmapItor;
 
 class Airodump{
 
-    // have multimap of ap info
-    // mac - apinfo pair
-    multimap<macaddr, Apinfo * > apInfoMap;
-    
-    //have list of probe info
+private:
 
-    //subscribe box
-    void * box;
+    multimap<macaddr, Apinfo * > apInfoMap;
+
+    //have probe info
+    Sniffer * sniffer;
 
 public:
-    
+
+
+    Subscriber *subBeacon;
+    //Subscriber *subProbe;
+
+
+    Airodump(uint8_t * );
+    void start();
+
     //print like real airodump
     void printAll();
+    void printAP();
+    void printProbe();
+    
 
-    void printAPList();
-    void printProbeList();
-
-    //get packet from box and change it to ApInfo
+    //get packet from box and update data
     void updateAP(const u_int8_t * packet);
 
+    /////////
     void addNewAP();
 
+
     Apinfo *  getAP(macaddr bssid, u_int8_t * essid, u_int32_t essidLen);
+
+
+
+    // monitoring thread
+    void checkBeaconSubBox();
+    void checkProbeSubBox();
+
+    //filtering function for sniffer
+    static bool filterBeacon(const u_int8_t * packet);
+
+
 
 
 
