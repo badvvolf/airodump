@@ -9,10 +9,10 @@ Subscriber::Subscriber(int32_t layerLevel,FILTER filterFunction)
  
 }
 
-const u_int8_t * Subscriber::popSubBox()
+u_int8_t * Subscriber::popSubBox()
 {
 
-    const u_int8_t * packet = subBox.front();
+    u_int8_t * packet = subBox.front();
     subBox.pop();
     return packet;
 }
@@ -24,7 +24,7 @@ bool Subscriber::isSubBoxEmpty()
 
 }
 
-void Subscriber::pushSubBox(const u_int8_t * packet)
+void Subscriber::pushSubBox(u_int8_t * packet)
 {
     unique_lock<mutex> lck(mutexSubBox);
     subBox.push(packet);
@@ -58,7 +58,6 @@ Sniffer::~Sniffer()
     //delete routine
 }
 
-
 void Sniffer::startSniffer()
 {
     
@@ -71,14 +70,15 @@ void Sniffer::startSniffer()
         if (res == 0) continue;
         if (res == -1 || res == -2) break;
 
-    
-      
         // push data to subscriber
         // beware if the subscriber is multiple 
         if( (sub = findSubscriber(packet)) != NULL)
         {
+            u_int8_t * packetCopy = new u_int8_t[header->len];
+            memcpy(packetCopy, packet, header->len);
+
             //move it to box
-            sendSubBox(packet, sub);
+            sendSubBox(packetCopy, sub);
         }
         
     }// while(true)
@@ -86,7 +86,7 @@ void Sniffer::startSniffer()
 } //void Sniffer::startSniffer()
 
 
-void Sniffer::sendSubBox(const u_int8_t * packet, Subscriber * sub)
+void Sniffer::sendSubBox(u_int8_t * packet, Subscriber * sub)
 {
     //mutex is inside the function
     sub->pushSubBox(packet);
@@ -96,6 +96,7 @@ void Sniffer::addSubscriber(Subscriber * sub)
 {
     unique_lock<mutex> subMutexLock(mutexSubMap);
     subscriber.insert(make_pair(sub->layer, sub));
+    printf("asdasdasd\n");
     mutexSubMap.unlock();
 }
 
@@ -114,10 +115,12 @@ Subscriber * Sniffer::findSubscriber(const uint8_t * packet)
             pair<submapItor, submapItor> equalLevSub = subscriber.equal_range((int32_t)NetworkLayer::DATALINK);
 
             for (submapItor iter = equalLevSub.first; iter != equalLevSub.second; iter++)
-            {
+            {  
+               
                 //use check function which registered 
                if((iter->second->filter)(packet))
                {
+                     
                    return iter->second;
                }
             }
@@ -143,6 +146,6 @@ Subscriber * Sniffer::findSubscriber(const uint8_t * packet)
 
    return NULL;
 
-} //Subscriber * Sniffer::findSubscriber(const uint8_t * packet)
+} //Subscriber * Sniffer::findSubscriber(uint8_t * packet)
 
 

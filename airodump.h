@@ -10,6 +10,8 @@ using namespace std;
 
 typedef multimap<macaddr, Apinfo *>::iterator apmapItor;
 
+
+
 class Airodump{
 
 private:
@@ -18,11 +20,13 @@ private:
 
     //have probe info
     Sniffer * sniffer;
+    Subscriber * subBeacon;
+    Subscriber * subData;
 
 public:
 
 
-    Subscriber *subBeacon;
+   
     //Subscriber *subProbe;
 
 
@@ -35,23 +39,24 @@ public:
     void printProbe();
     
 
-    //get packet from box and update data
-    void updateAP(const u_int8_t * packet);
+    //get packet from box and update
+    void updateAP(u_int8_t * );
+    void updateData(u_int8_t * );
 
     /////////
     void addNewAP();
 
 
-    Apinfo *  getAP(macaddr bssid, u_int8_t * essid, u_int32_t essidLen);
+    Apinfo * getAP(macaddr , u_int8_t * , u_int32_t );
 
 
 
     // monitoring thread
-    void checkBeaconSubBox();
-    void checkProbeSubBox();
-
+    void manageSubBox(Subscriber * sub);
+    
     //filtering function for sniffer
-    static bool filterBeacon(const u_int8_t * packet);
+    static bool filterBeacon(const u_int8_t * );
+    static bool filterData(const u_int8_t * );
 
 
 

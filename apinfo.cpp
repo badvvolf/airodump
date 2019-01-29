@@ -7,7 +7,7 @@ void Apinfo::printAPInfo()
 {
     Util util;
     util.printMACAddr(bssid);  
-    printf(" | %d  |  %d  |   %d  |   |  %d  |  | ", pwr/(int32_t)beacons, beacons, data , channel);  
+    printf(" | %d  |  %d  |   %d  |   |  %d  |  | ", pwr/(int32_t)total, beacons, data , channel);  
         
     if(!encryption)
         printf("OPN");
@@ -15,7 +15,10 @@ void Apinfo::printAPInfo()
 
     printf(" |   |  | ");
     
-    printf("%s \n", essid);
+    if(essidLen !=0)
+       printf("%s", essid);
+    
+    printf("\n");
 
 }
 

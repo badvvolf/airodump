@@ -36,7 +36,7 @@ typedef bool (*FILTER)(const u_int8_t *);
 class Subscriber
 {
 private:
-    queue<const u_int8_t *> subBox;
+    queue<u_int8_t *> subBox;
 public:
     
     // network layer of filter
@@ -50,8 +50,8 @@ public:
  
     Subscriber(int32_t, FILTER);
     
-    void pushSubBox(const u_int8_t *);
-    const u_int8_t * popSubBox();
+    void pushSubBox(u_int8_t *);
+    u_int8_t * popSubBox();
     bool isSubBoxEmpty();
 
 };
@@ -78,7 +78,7 @@ public:
     void startSniffer();
 
     void addSubscriber(Subscriber * );
-    void sendSubBox(const u_int8_t * , Subscriber * );
+    void sendSubBox(u_int8_t * , Subscriber * );
 
     Subscriber * findSubscriber(const uint8_t * );
 

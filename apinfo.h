@@ -18,6 +18,8 @@ public:
     u_int8_t * essid;
     u_int8_t encryption;
 
+    u_int32_t total;
+
     void printAPInfo();
     static Apinfo * getRadiotapInfo(struct radiotap * radiotapHeader);
     
