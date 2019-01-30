@@ -18,6 +18,17 @@
 using namespace std;
 
 
+class SubBoxContent{
+
+public:
+    struct pcap_pkthdr * pcapheader;
+    u_int8_t * packet;
+
+    SubBoxContent(struct pcap_pkthdr * , u_int8_t *);
+    ~SubBoxContent();
+};
+
+
 enum class NetworkLayer
 {
     PHYSICAL = 1,
@@ -36,7 +47,7 @@ typedef bool (*FILTER)(const u_int8_t *);
 class Subscriber
 {
 private:
-    queue<u_int8_t *> subBox;
+    queue<SubBoxContent *> subBox;
 public:
     
     // network layer of filter
@@ -50,8 +61,8 @@ public:
  
     Subscriber(int32_t, FILTER);
     
-    void pushSubBox(u_int8_t *);
-    u_int8_t * popSubBox();
+    void pushSubBox(SubBoxContent *);
+    SubBoxContent * popSubBox();
     bool isSubBoxEmpty();
 
 };
@@ -78,7 +89,7 @@ public:
     void startSniffer();
 
     void addSubscriber(Subscriber * );
-    void sendSubBox(u_int8_t * , Subscriber * );
+    void sendSubBox(SubBoxContent * , Subscriber * );
 
     Subscriber * findSubscriber(const uint8_t * );
 

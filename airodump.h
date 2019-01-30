@@ -40,19 +40,19 @@ public:
     
 
     //get packet from box and update
-    void updateAP(u_int8_t * );
-    void updateData(u_int8_t * );
+    void updateAP(SubBoxContent * );
+    void updateData(SubBoxContent * );
 
     /////////
     void addNewAP();
 
 
     Apinfo * getAP(macaddr , u_int8_t * , u_int32_t );
-
-
+    void getRadiotapInfo(struct radiotap * , Apinfo * );
+    void getCrypto(u_int8_t * , struct beaconbody *  , u_int32_t , Apinfo * );
 
     // monitoring thread
-    void manageSubBox(Subscriber * sub);
+    void manageSubBox(Subscriber * );
     
     //filtering function for sniffer
     static bool filterBeacon(const u_int8_t * );

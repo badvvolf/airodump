@@ -6,9 +6,10 @@
 //to do
 // - implement
 //      specific crypto 
-//      data frame 
+//      probe 
 // - refactoring
 //      sniffer : find subscriber... -> multiple subscriber
+//      radiotap info -> not new apinfo
 
 void usage();
 

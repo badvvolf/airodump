@@ -9,12 +9,11 @@ Subscriber::Subscriber(int32_t layerLevel,FILTER filterFunction)
  
 }
 
-u_int8_t * Subscriber::popSubBox()
+SubBoxContent * Subscriber::popSubBox()
 {
-
-    u_int8_t * packet = subBox.front();
+    SubBoxContent * content = subBox.front();
     subBox.pop();
-    return packet;
+    return content;
 }
 
 bool Subscriber::isSubBoxEmpty()
@@ -24,10 +23,10 @@ bool Subscriber::isSubBoxEmpty()
 
 }
 
-void Subscriber::pushSubBox(u_int8_t * packet)
+void Subscriber::pushSubBox(SubBoxContent * content)
 {
     unique_lock<mutex> lck(mutexSubBox);
-    subBox.push(packet);
+    subBox.push(content);
     
     //notify if thread is waiting..
     subBoxEmpty.notify_all();
@@ -36,6 +35,25 @@ void Subscriber::pushSubBox(u_int8_t * packet)
 
 
 ////////////////////////////////////////////////////////////////////
+
+
+
+SubBoxContent::SubBoxContent(struct pcap_pkthdr * header, u_int8_t * p)
+{
+    pcapheader = header;
+    packet = p;
+
+}
+
+SubBoxContent::~SubBoxContent()
+{
+    delete(packet);
+    free(pcapheader);
+}
+
+
+
+////////////////////////////////////////////////////////////////////////
 
 
 
@@ -58,6 +76,7 @@ Sniffer::~Sniffer()
     //delete routine
 }
 
+
 void Sniffer::startSniffer()
 {
     
@@ -77,8 +96,13 @@ void Sniffer::startSniffer()
             u_int8_t * packetCopy = new u_int8_t[header->len];
             memcpy(packetCopy, packet, header->len);
 
+            struct pcap_pkthdr * pcapheader = (struct pcap_pkthdr *)malloc(sizeof(struct pcap_pkthdr));
+            memcpy(pcapheader, header, sizeof(struct pcap_pkthdr));
+
+            SubBoxContent * content = new SubBoxContent(pcapheader, packetCopy);
+
             //move it to box
-            sendSubBox(packetCopy, sub);
+            sendSubBox(content, sub);
         }
         
     }// while(true)
@@ -86,17 +110,16 @@ void Sniffer::startSniffer()
 } //void Sniffer::startSniffer()
 
 
-void Sniffer::sendSubBox(u_int8_t * packet, Subscriber * sub)
+void Sniffer::sendSubBox(SubBoxContent * content, Subscriber * sub)
 {
     //mutex is inside the function
-    sub->pushSubBox(packet);
+    sub->pushSubBox(content);
 }
 
 void Sniffer::addSubscriber(Subscriber * sub)
 {
     unique_lock<mutex> subMutexLock(mutexSubMap);
     subscriber.insert(make_pair(sub->layer, sub));
-    printf("asdasdasd\n");
     mutexSubMap.unlock();
 }
 
