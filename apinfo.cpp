@@ -3,7 +3,32 @@
 #include "apinfo.h"
 
 
+ProbeInfo::ProbeInfo()
+{
+    bssid = {0, };
+     station={0, };
+    
+     pwr=0;
+     pwrcount=0;
 
+     rate=0;
+     lost = 0;
+
+     frame = 0;
+    
+     essidLen = 0;
+     essid = NULL;
+
+}
+
+
+ProbeInfo::~ProbeInfo()
+{
+
+    delete(essid);
+
+
+}
 
 Apinfo::Apinfo()
 {
@@ -25,11 +50,29 @@ Apinfo::~Apinfo()
     delete(essid);
 }
 
+void ProbeInfo::printPIInfo()
+{
+    Util::printMACAddr(bssid); 
+    printf("|");
+    Util::printMACAddr(station); 
+    printf("|%d|  |  |%d|",pwr/pwrcount, frame);
+
+    if(essidLen !=0)
+        printf("%s", essid);
+    else
+    {
+        printf("<len %d>", essidLen);
+    }
+
+
+    printf("\n");
+
+}
 
 void Apinfo::printAPInfo()
 {
-    Util util;
-    util.printMACAddr(bssid);  
+   
+    Util::printMACAddr(bssid);  
   
     printf("|%d|%d|%d|   |%d|  |", pwr/pwrcount, beacons, data , channel);  
         
@@ -51,11 +94,11 @@ void Apinfo::printAPInfo()
         | ENC_WEP40
         | ENC_GCMP))
         == 0)
-        printf("       ");
+        printf("      ");
     else if (encryption & ENC_CCMP)
-        printf("CCMP");
+        printf("CCMP  ");
     else if (encryption & ENC_WRAP)
-        printf("WRAP");
+        printf("WRAP  ");
     else if (encryption & ENC_TKIP)
         printf("TKIP  ");
     else if (encryption & ENC_WEP104)

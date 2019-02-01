@@ -5,11 +5,11 @@
 
 //to do
 // - implement
-//      specific crypto 
 //      probe 
 // - refactoring
 //      sniffer : find subscriber... -> multiple subscriber
 //      radiotap info -> not new apinfo
+//      change getRadioTap -> return radiotap info
 
 void usage();
 

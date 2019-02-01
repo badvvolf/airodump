@@ -16,8 +16,12 @@
 #define	IEEE80211_FC0_TYPE_DATA			0x08
 
 #define	IEEE80211_FC0_SUBTYPE_MASK		0xf0
+#define	IEEE80211_FC0_SUBTYPE_PROBE_REQ		0x40
+#define	IEEE80211_FC0_SUBTYPE_PROBE_RESP	0x50
 #define	IEEE80211_FC0_SUBTYPE_DATA		0x00
 #define	IEEE80211_FC0_SUBTYPE_BEACON	0x80
+
+
 
 #define STD_QOS 0x2000
 
@@ -72,6 +76,18 @@ struct beaconbody{
     u_int8_t tags;
 
 };
+
+struct probeFrame{
+
+    u_int64_t timestamp;
+    u_int16_t beacon_interval;
+    u_int16_t capability;
+
+    //dynamic length, use pointer
+    u_int8_t tags;
+
+};
+
 
 
 struct dot11{

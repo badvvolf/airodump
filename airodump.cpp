@@ -4,10 +4,13 @@ Airodump::Airodump(uint8_t * dev)
 {
     subBeacon = new Subscriber(2, (FILTER)&Airodump::filterBeacon);
     subData = new Subscriber(2, (FILTER)&Airodump::filterData);
+    subProbeReq = new Subscriber(2, (FILTER)&Airodump::filterProbeReq);
 
     sniffer = new Sniffer(dev);
+    
     sniffer->addSubscriber(subBeacon);
     sniffer->addSubscriber(subData);
+    sniffer->addSubscriber(subProbeReq);
 }
 
 
@@ -15,14 +18,33 @@ void Airodump::start()
 {
     thread beaconSubBoxManger(&Airodump::manageSubBox, this, subBeacon);
     thread dataSubBoxManager(&Airodump::manageSubBox, this, subData);
-    //add probeSubBoxChecker
-
+    thread probeSubBoxManager(&Airodump::manageSubBox, this, subProbeReq);
 
 
     beaconSubBoxManger.join();
     dataSubBoxManager.join();
 }
 
+
+bool Airodump::filterProbeReq(const u_int8_t * packet)
+{
+    struct radiotap * radiotapHeader;
+    struct dot11 * dot11Header;
+   
+    radiotapHeader = (struct radiotap *)packet; 
+    dot11Header = (struct dot11 *)((u_int8_t *)packet + radiotapHeader->it_len);
+
+    u_int8_t fcType = (dot11Header->fc & IEEE80211_FC0_TYPE_MASK) ;
+    u_int8_t fcSubtype = (dot11Header->fc & IEEE80211_FC0_SUBTYPE_MASK);
+
+    if(fcType == IEEE80211_FC0_TYPE_MGT && fcSubtype== IEEE80211_FC0_SUBTYPE_PROBE_REQ)
+    {
+        return true;
+    }
+    return false; 
+
+
+}
 
 bool Airodump::filterBeacon(const u_int8_t * packet)
 {
@@ -79,9 +101,86 @@ void Airodump::manageSubBox(Subscriber * sub)
             updateAP(content);
         else if(sub == subData)
             updateData(content);
+        else if (sub == subProbeReq)
+            updateProbeReq(content);
 
 
     }
+}
+
+
+
+void Airodump::updateProbeReq(SubBoxContent * content)
+{
+    u_int8_t * packet = content->packet;
+
+    struct radiotap * radiotapHeader = (struct radiotap *)packet;
+    struct dot11 * dot11Header = (struct dot11 *)((u_int8_t *)packet + radiotapHeader->it_len);
+    ProbeInfo * pi;
+   // struct beaconbody * bcbody = (struct beaconbody *)((u_int8_t *)dot11Header + sizeof(dot11));
+
+    u_int8_t * probeReqTags = (u_int8_t *)dot11Header + sizeof(dot11);
+    RadioTapInfo * rt = new RadioTapInfo();
+ 
+    if(pi = getPI((macaddr)dot11Header->addr2, (macaddr)dot11Header->addr3, &probeReqTags[2] , (u_int32_t)probeReqTags[1]))
+    {
+        //update data
+        
+        getRadiotapInfo(radiotapHeader, rt);
+
+        pi->pwr += rt->pwr;
+        pi->pwrcount +=1;
+
+        pi->frame +=1;
+
+        //if data frame arrived first
+        if(pi->essidLen ==0 && (u_int32_t)probeReqTags[1] >0 )
+        {
+            pi -> essidLen =  (u_int32_t)probeReqTags[1];
+            pi -> essid = new u_int8_t[pi ->essidLen+1];
+            memcpy(pi ->essid, &probeReqTags[2], pi ->essidLen);
+            pi -> essid[pi ->essidLen] = 0;
+        }
+
+    }
+    else
+    {
+        //add new AP
+        pi = new ProbeInfo();
+        
+        getRadiotapInfo(radiotapHeader, rt);
+
+
+        pi->pwr = rt->pwr;
+        pi->pwrcount +=1;
+        pi->bssid = dot11Header->addr3;
+       
+        pi->station =  dot11Header->addr2;
+       
+
+        pi -> frame = 1;
+
+        if((u_int32_t)probeReqTags[1] > 0)
+        {
+            pi -> essidLen =  (u_int32_t)probeReqTags[1];
+
+            pi -> essid = new u_int8_t[pi ->essidLen+1];
+            memcpy(pi ->essid, &probeReqTags[2], pi ->essidLen);
+            pi -> essid[pi ->essidLen] = 0;
+        }
+
+        
+        piInfoMap.insert(make_pair(pi->station, pi));
+
+    }
+
+
+    delete(content);
+    delete(rt);
+
+
+    printAll();
+
 }
 
 void Airodump::updateData(SubBoxContent * content)
@@ -91,7 +190,7 @@ void Airodump::updateData(SubBoxContent * content)
     struct radiotap * radiotapHeader = (struct radiotap *)packet;
     struct dot11 * dot11Header = (struct dot11 *)((u_int8_t *)packet + radiotapHeader->it_len);
     Apinfo * ap;
-
+    RadioTapInfo * rt = new RadioTapInfo();
    /* struct beaconbody * bcbody = (struct beaconbody *)((u_int8_t *)dot11Header + sizeof(dot11));
 
     u_int8_t * bcbodyTags = &(bcbody->options);*/
@@ -100,7 +199,10 @@ void Airodump::updateData(SubBoxContent * content)
     if(ap = getAP((macaddr)dot11Header->addr3, NULL , 0))
     {
         //update data
-        getRadiotapInfo(radiotapHeader, ap);
+        getRadiotapInfo(radiotapHeader, rt);
+        ap->pwr += rt->pwr;
+        ap->pwrcount +=1;
+        ap->channel = rt->channel;
 
         ap->data +=1;
   
@@ -111,9 +213,15 @@ void Airodump::updateData(SubBoxContent * content)
  
         ap = new Apinfo();
 
-        getRadiotapInfo(radiotapHeader, ap);
+        getRadiotapInfo(radiotapHeader, rt);
+
+        ap->pwr = rt->pwr;
+        ap->pwrcount +=1;
+
+        ap->channel = rt->channel;
 
         ap->bssid = dot11Header->addr3;
+        
         
         ap -> data = 1;
 
@@ -133,6 +241,7 @@ void Airodump::updateData(SubBoxContent * content)
     }
 
     delete(content);
+    delete(rt);
 
     printAll();
 
@@ -151,13 +260,20 @@ void Airodump::updateAP(SubBoxContent * content)
 
     u_int8_t * bcbodyTags = &(bcbody->tags);
 
+    RadioTapInfo * rt = new RadioTapInfo();
+
     if(ap = getAP((macaddr)dot11Header->addr3, &bcbodyTags[2] , (u_int32_t)bcbodyTags[1]))
     {
         //update data
 
-        getRadiotapInfo(radiotapHeader, ap);
+        getRadiotapInfo(radiotapHeader, rt);
 
         ap->beacons +=1;
+
+        ap->pwr += rt->pwr;
+        ap->pwrcount +=1;
+
+        ap->channel = rt->channel;
 
         //if data frame arrived first
         if(ap->essidLen ==0 && (u_int32_t)bcbodyTags[1] >0 )
@@ -174,7 +290,11 @@ void Airodump::updateAP(SubBoxContent * content)
         //add new AP
         ap = new Apinfo();
         
-        getRadiotapInfo(radiotapHeader, ap);
+        getRadiotapInfo(radiotapHeader, rt);
+
+        ap->pwr = rt->pwr;
+        ap->pwrcount +=1;
+        ap->channel = rt->channel;
 
         ap->bssid = dot11Header->addr3;
 
@@ -197,21 +317,58 @@ void Airodump::updateAP(SubBoxContent * content)
     }
 
     delete(content);
+    delete(rt);
 
     printAll();
 
 }
 
+ProbeInfo * Airodump::getPI(macaddr station, macaddr bssid, u_int8_t * essid, u_int32_t essidLen)
+{
+    //return apInfoMap.find(bssid)->second;
+    pimapItor iter = piInfoMap.find(station);
+
+    if(iter == piInfoMap.end())
+        return NULL;
+  
+    pair<pimapItor, pimapItor> result = piInfoMap.equal_range(station);
+    
+    for (pimapItor iter = result.first; iter != result.second; iter++)
+    {
+        if(essidLen == 0)
+        {
+            //bssid
+            if(iter->second->essidLen == 0 && iter->second->bssid == bssid)
+            {
+                return iter->second;
+            }
+        }
+        if(essidLen != 0)
+        {
+            if(iter->second->essidLen != 0 
+                && !memcmp(iter->second->essid, essid, essidLen
+                && iter->second->bssid == bssid))
+            { 
+                return iter->second;
+            }
+        }
+    }
+
+    return NULL;
+
+
+}
 
 Apinfo *  Airodump::getAP(macaddr bssid, u_int8_t * essid, u_int32_t essidLen)
 {
     //return apInfoMap.find(bssid)->second;
 
     apmapItor iter = apInfoMap.find(bssid);
+  
     if(iter == apInfoMap.end())
         return NULL;
     else
-    {
+    {  
         //return the last one
         return iter->second;
     }
@@ -239,10 +396,22 @@ void Airodump::printAll()
 {
    system("clear");
    printAP();
+   printProbe();
 
-    //printProbe()
 
+}
 
+void Airodump::printProbe()
+{
+    printf("{ BSSID | STATION | PWR | RATE | Lost  | Frames | Probe }\n\n");
+
+    for (pimapItor iter = piInfoMap.begin(); iter != piInfoMap.end(); iter ++)
+    {
+        iter->second->printPIInfo();
+
+    }
+
+    
 }
 
 void Airodump::printAP()
@@ -255,6 +424,8 @@ void Airodump::printAP()
         iter->second->printAPInfo();
 
     }
+
+    printf("\n");
 
 }
 
@@ -387,7 +558,7 @@ void Airodump::getCrypto(u_int8_t * packet, struct beaconbody * bcbody , u_int32
 }
 
 
-void Airodump::getRadiotapInfo(struct radiotap * radiotapHeader, Apinfo * ap)
+void Airodump::getRadiotapInfo(struct radiotap * radiotapHeader, RadioTapInfo * rt)
 {
     u_int32_t count = 1;
 
@@ -427,7 +598,7 @@ void Airodump::getRadiotapInfo(struct radiotap * radiotapHeader, Apinfo * ap)
             case IEEE80211_RADIOTAP_CHANNEL:
             {    
                 struct radiotap_channel * channel = (struct radiotap_channel *)ptr;
-                ap->channel = (channel->frequency - 2412)/5 +1;
+                rt->channel = (channel->frequency - 2412)/5 +1;
                 ptr += sizeof(struct radiotap_channel);
                 break;
             }
@@ -439,8 +610,8 @@ void Airodump::getRadiotapInfo(struct radiotap * radiotapHeader, Apinfo * ap)
             //average??????????
             case IEEE80211_RADIOTAP_DBM_ANTSIGNAL:
                 
-                ap->pwr += (int32_t)((int8_t)(*ptr));
-                ap->pwrcount +=1;
+                rt->pwr = (int32_t)((int8_t)(*ptr));
+
                 //maybe alignment
                 ptr += 2;    
                 break;
